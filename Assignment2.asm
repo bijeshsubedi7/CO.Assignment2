@@ -69,3 +69,60 @@ trimSpace:
 	li  $t7, 0			# $t7 stores end of the line character
 	sb  $t7, ($a0)			# End of the character is inserted at the end of the valid character
 	jr  $ra				# Returning control to the main program
+
+
+charToInteger:
+# Function to convert character to integer
+# Arguments: $a0
+	slti $t8, $a0, 59		# If the char is less than 59, the char is a number
+	beq $t8, 1, numbers
+	
+	slti $t8, $a0, 71		# If the char is less than 71 and greater than 59, the char is captial letter
+	beq $t8, 1, capital
+	
+	slti $t8, $a0, 103		# If the char is less than 103, and greater than 71, the char is small letter
+	beq $t8, 1, small
+	
+	numbers:
+		addi $v1, $a0, -48	# subtract 48 from the numbers to get the decimal value
+		b exitCharToInteger 
+	capital:
+		addi $v1, $a0, -55	# subtract 55 from the capital letters to get the decimal value
+		b exitCharToInteger 
+	small:
+		addi $v1, $a0, -87	# subtract 87 from the small letters to get the decimal value
+	exitCharToInteger:
+	jr $ra
+
+
+checkChar:
+# Function to check if the character is valid
+# Arguemnt required: $a0
+# Return Value in: $v1 (1 if true, 0 if false)
+	li $v1, 0
+	beq $a0, 97, else	# $a0 == 'a'
+	beq $a0, 98, else
+	beq $a0, 99, else
+	beq $a0, 100, else
+	beq $a0, 101, else
+	beq $a0, 102, else
+	beq $a0, 65, else	# $a0 == 'A'
+	beq $a0, 66, else
+	beq $a0, 67, else
+	beq $a0, 68, else
+	beq $a0, 69, else
+	beq $a0, 70, else
+	beq $a0, 48, else	# $a0 == 0
+	beq $a0, 49, else
+	beq $a0, 50, else
+	beq $a0, 51, else
+	beq $a0, 52, else
+	beq $a0, 53, else
+	beq $a0, 54, else
+	beq $a0, 55, else
+	beq $a0, 56, else
+	beq $a0, 57, else
+	jr $ra
+	else:
+	li $v1, 1
+	jr $ra
