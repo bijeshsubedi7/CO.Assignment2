@@ -3,6 +3,8 @@ userInput: 	.space 1001
 dataString:	.space 1001
 naN:		.asciiz "NaN"
 tooLarge:	.asciiz "too large"
+aNumber: 	.asciiz "A number"
+outputString: 	.space 50
 
 .text
 main:
@@ -12,15 +14,13 @@ main:
 	li $a1, 1001		# Specifying the max-size of the input
 	syscall		# Performing the system call to input the string
 	
-	# Calling the function to trim the space from front and behind
-	#jal trimSpace	
-	#la  $s0, 0($v0) 		# Storing the starting address of the string
+	li $a0, 1
+	jal checkChar
 	
 	la $s0, userInput
 	
 	loop0:	la $t0, dataString
 		li $t1, 0	# length of the string
-		li $t2, 1	# Boolean variable to check if the character is valid
 		
 		loop1:	lb  $t3, 0($s0)		# storing the first character pointed by s0
 			beq $t3, 10, exitLoop1
@@ -29,7 +29,6 @@ main:
 			
 			sb $t3, ($t0)
 			addi $t1, $t1, 1
-			
 			
 			addi $s0, $s0, 1
 			addi $t0, $t0, 1
@@ -41,8 +40,13 @@ main:
 		li $t8, 0
 		sb $t8, ($t0)
 		
+		# Calling sub_prgram2 
 		la $a0, dataString
-		jal printWord
+		jal subprogram_2
+		la $a0, ($v1)
+		li $v0, 4
+		syscall
+		
 		beq $t3, 10, exitLoop0
 		beq $t3, 0, exitLoop0
 		j loop0
@@ -56,11 +60,12 @@ main:
 trimSpace:
 # Fucntion to trim the spaces from infront and back of the input
 # Takes argument in $a0
-# Returns the start address of the string in $t0 and length of the string in $v1
+# Returns the start address of the string in $v0 and length of the string in $v1
 	li $v1, 0	# the length of the string
 	# Loop 1 marks the beginning of the string by getting rid of all the tabs and the spaces in front of the string
 	loop2:	lb  $t7, ($a0)			# Loading the character pointed by the address at $a0
 		beq $t7, 0, exitLoop2		# If the character is the end of the line character we exit the loop
+		beq $t7, 10, exitLoop2
 		beq $t7, 32, continueLoop2	
 		beq $t7, 9, continueLoop2
 		j   exitLoop2
@@ -82,7 +87,7 @@ trimSpace:
 		whiteSpace:		# Operations to perform when we encounter a white space
 		addi $t6, $t6, 1
 		continueLoop3:		# Loop related increaments
-		addi $t8, $t8, 1
+		addi $a0, $a0, 1
 		addi $v1, $v1, 1
 		j    loop3
 	exitLoop3:
@@ -121,7 +126,74 @@ subprogram_2:
 # Function to convert a hexadecimal string into hexadecimal integer using subprogram_1
 # Arguments:	$a0 (The string), $a1(The length of the string)	
 # Return Value: $sp (Returns the final result)
-
+# This function first trims the space and then loops through the string to see if all the chars are valid.
+# If the chars are valid then the conversion is made.
+	add $s7, $ra, $zero	# Saving the memory address of the ra register
+	jal trimSpace		# Calling the function to trim the space
+	add $s6, $v0, $zero	# Sacing the address
+	li $s5, 0		# Length of the new String
+	
+	loop5:	lb  $t8, ($s6)			#loading the character at $s6 into $t8
+		beq $t8,  0, exitLoop5		# If the character is a end-line character then we exit the loop
+		beq $t8, 10, exitLoop5		# If the character is a new-line character then we exit the loop
+		
+		# Calling the function to check if the character is valid
+		la $a0, ($t8)	# Preparing the arguments		
+		jal checkChar	# Calling the function
+		la $t7, ($v1)	# Storing the return value
+		
+		beq $t7, 1, continue5		# If the character is valid then we continue normal loop operations
+		
+		# If the character is not a valid character
+		li $v0, 0		# $v0 refers whether the conversion was successful
+		la $v1, naN		# $v1 contains the startting address of the given error
+		add $ra, $s7, $0	# # restoring the value of the $ra register
+		jr $ra			# returning to the original function
+		continue5:
+		addi $s5, $s5, 1	# Increasing the length of the string
+		addi $s6, $s6, 1	# Pointing to the next character
+		j loop5			# Loop
+	exitLoop5:
+	bgt $s5, 8, tooLarge1		# Checking if the length is greater than 8
+	j valid				# If the length is 8 or smaller
+	
+	# If the string is larger than 8 characters
+	tooLarge1:
+	li $v0, 0		# v0 contains whether the transformation was successfull or not
+	la $v1, tooLarge	# v1 points at the starting address of the output message
+	add $ra, $0, $s7	# Restoring the value of the ra register
+	jr $ra			# Returning 
+	valid:
+	sub $s6, $s6, $s5	# s6 now points to the start of the string
+	li $v0, 1		# $v0 = 1, means the conversion can be made
+	li $s4, 0		# #s4 stores the converted decimal integer
+	loop6:	lb $t8, ($s6)			# loading the byte pointed by s6
+		beq $t8, 0, exitLoop6		# If the byte is a new-line or a end-line character, we exit the loop
+		beq $t8, 10, exitLoop6
+		
+		# Calling a function to covert a character into its corrosponding number
+		la $a0, ($t8)
+		jal subprogram_1
+		la $t7, ($v1)
+		
+		# Performing the operations required to convert the hexadecimal number to decimal
+		sll $s4, $s4, 4
+		add $s4, $s5, $t7
+		
+		addi $s6, $s6, 1	# s6 now points to the next character in the string
+		j loop6			# looping
+	exitLoop6:
+	
+	# For testing purpose
+	la $v1, aNumber
+	
+	la $a0, ($s4)
+	li $v0, 1
+	syscall
+	
+	add $ra, $s7, $zero
+	jr $ra
+	
 
 checkChar:
 # Function to check if the character is valid
