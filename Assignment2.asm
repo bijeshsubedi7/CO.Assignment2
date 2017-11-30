@@ -4,8 +4,6 @@ dataString:	.space 1001
 naN:		.asciiz "NaN"
 tooLarge:	.asciiz "too large"
 aNumber: 	.asciiz "A number"
-outputString: 	.space 50
-
 .text
 main:
 	# Inputing the data from the user
@@ -13,9 +11,6 @@ main:
 	la $a0, userInput	# Specifying where the input would be stored
 	li $a1, 1001		# Specifying the max-size of the input
 	syscall		# Performing the system call to input the string
-	
-	li $a0, 1
-	jal checkChar
 	
 	la $s0, userInput
 	
@@ -43,10 +38,13 @@ main:
 		# Calling sub_prgram2 
 		la $a0, dataString
 		jal subprogram_2
-		la $a0, ($v1)
-		li $v0, 4
-		syscall
+		jal subprogram_3
 		
+		bne $t3, 44, continueLoop0
+		li $v0, 11
+		li $a0, 44
+		syscall
+		continueLoop0:
 		beq $t3, 10, exitLoop0
 		beq $t3, 0, exitLoop0
 		j loop0
@@ -147,13 +145,17 @@ subprogram_2:
 		# If the character is not a valid character
 		li $v0, 0		# $v0 refers whether the conversion was successful
 		la $v1, naN		# $v1 contains the startting address of the given error
-		add $ra, $s7, $0	# # restoring the value of the $ra register
-		jr $ra			# returning to the original function
+		j exitS2		# returning to the original function
 		continue5:
 		addi $s5, $s5, 1	# Increasing the length of the string
 		addi $s6, $s6, 1	# Pointing to the next character
 		j loop5			# Loop
 	exitLoop5:
+	bne $s5, 0, skip
+	li $v0, 0
+	la $v1, naN
+	j exitS2
+	skip:
 	bgt $s5, 8, tooLarge1		# Checking if the length is greater than 8
 	j valid				# If the length is 8 or smaller
 	
@@ -161,12 +163,12 @@ subprogram_2:
 	tooLarge1:
 	li $v0, 0		# v0 contains whether the transformation was successfull or not
 	la $v1, tooLarge	# v1 points at the starting address of the output message
-	add $ra, $0, $s7	# Restoring the value of the ra register
-	jr $ra			# Returning 
+	j exitS2
 	valid:
 	sub $s6, $s6, $s5	# s6 now points to the start of the string
 	li $v0, 1		# $v0 = 1, means the conversion can be made
 	li $s4, 0		# #s4 stores the converted decimal integer
+	
 	loop6:	lb $t8, ($s6)			# loading the byte pointed by s6
 		beq $t8, 0, exitLoop6		# If the byte is a new-line or a end-line character, we exit the loop
 		beq $t8, 10, exitLoop6
@@ -178,21 +180,45 @@ subprogram_2:
 		
 		# Performing the operations required to convert the hexadecimal number to decimal
 		sll $s4, $s4, 4
-		add $s4, $s5, $t7
+		add $s4, $s4, $t7
 		
 		addi $s6, $s6, 1	# s6 now points to the next character in the string
 		j loop6			# looping
 	exitLoop6:
+	la $v1, ($s4)
 	
-	# For testing purpose
-	la $v1, aNumber
+	exitS2:
+	# Loading the stack registers to return the value
+	addi $sp, $sp, -4
+	sw $v1, 0($sp)
 	
-	la $a0, ($s4)
-	li $v0, 1
-	syscall
+	addi $sp, $sp, -4
+	sw $v0, 0($sp)
 	
 	add $ra, $s7, $zero
 	jr $ra
+
+subprogram_3:
+	lw $t8, ($sp)			# $t8 now contains the validity
+	addi $sp, $sp, 4
+	lw $t7, ($sp)			# $t7 now contains the value or the error message
+	beq $t8, 0, errorMessage
+	li $v0, 1
+	li $t6, 10
+	divu $t7, $t6
+	li $v0, 1
+	mflo $a0
+	syscall
+	mfhi $a0
+	syscall
+	j exitS3
+	errorMessage:
+	li $v0, 4
+	la $a0, ($t7)
+	syscall
+	exitS3:
+	jr $ra
+	
 	
 
 checkChar:
@@ -225,22 +251,4 @@ checkChar:
 	jr $ra
 	else:
 	li $v1, 1
-	jr $ra
-	
-printWord:
-	la $t8, ($a0)
-	loop9:	lb $t7, ($t8)
-		beq $t7, 0, exitLoop9
-		beq $t7, 10, exitLoop9
-		
-		li $v0, 11
-		la $a0, ($t7)
-		syscall
-		
-		addi $t8, $t8, 1
-		j loop9
-	exitLoop9:
-	li $v0, 11
-	li $a0, 10
-	syscall
 	jr $ra
