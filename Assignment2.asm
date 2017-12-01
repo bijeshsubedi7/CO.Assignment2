@@ -3,52 +3,50 @@ userInput: 	.space 1001
 dataString:	.space 1001
 naN:		.asciiz "NaN"
 tooLarge:	.asciiz "too large"
-aNumber: 	.asciiz "A number"
 .text
 main:
+# Program to convert coma separated hexadecimal numbers into equivalent deciaml number
 	# Inputing the data from the user
 	li $v0, 8		# Asking the OS to input a string
 	la $a0, userInput	# Specifying where the input would be stored
 	li $a1, 1001		# Specifying the max-size of the input
-	syscall		# Performing the system call to input the string
-	
-	la $s0, userInput
-	
-	loop0:	la $t0, dataString
-		li $t1, 0	# length of the string
-		
+	syscall			# Performing the system call to input the string
+	la $s0, userInput	# Saving the address of the userInput in $s0
+	loop0:	la $t0, dataString		# Pointing $t0 to the beginning of dataString to start writing value
 		loop1:	lb  $t3, 0($s0)		# storing the first character pointed by s0
-			beq $t3, 10, exitLoop1
+			# Setting the conditions to exit the loop i.e. when char = newLine, endLine, coma
+			beq $t3, 10, exitLoop1	
 			beq $t3, 0,  exitLoop1
 			beq $t3, 44, exitLoop1
-			
-			sb $t3, ($t0)
-			addi $t1, $t1, 1
-			
-			addi $s0, $s0, 1
-			addi $t0, $t0, 1
-			j loop1
+			sb $t3, ($t0)		# Storing the value at $t3 into memroy address pointed by $t0
+			addi $s0, $s0, 1	# $s0 now points to the next char
+			addi $t0, $t0, 1	# $t0 now points to the next memory address
+			j loop1			# continue looping
 		exitLoop1:
-		bne $t3, 44, notComa
-		addi $s0, $s0, 1
-		notComa:
-		li $t8, 0
+		# Writing the endLine character in the dataString string.
+		li $t8, 0		
 		sb $t8, ($t0)
-		
-		# Calling sub_prgram2 
-		la $a0, dataString
-		jal subprogram_2
-		jal subprogram_3
-		
-		bne $t3, 44, continueLoop0
+		la $a0, dataString		# Passing the intial address of dataString as parameter for subprogram_2
+		jal subprogram_2		# Calling subprogram_2
+		# Retreiving the values returned by the subprogram_2
+		lw $a0, ($sp)
+		addi $sp, $sp, 4
+		lw $a1, ($sp)
+		# Passing arguments for subprogram_3 using stack
+		sw $a1, ($sp)
+		addi $sp, $sp, -4
+		sw $a0, ($sp)
+		jal subprogram_3		# Calling subprogram_3
+		# Setting the conditions for exiting the main loop
+		beq $t3, 10, exitLoop0
+		beq $t3, 0, exitLoop0
+		addi $s0, $s0, 1		# $s0 now points to the next character
+		# Printing the coma
 		li $v0, 11
 		li $a0, 44
 		syscall
-		continueLoop0:
-		beq $t3, 10, exitLoop0
-		beq $t3, 0, exitLoop0
-		j loop0
-	exitLoop0:
+		j loop0				# loop continuation
+	exitLoop0:	
 	
 	
 	# Syscall to end the program
@@ -73,7 +71,6 @@ trimSpace:
 	exitLoop2:
 	la $v0, ($a0)
 	li $t6, 0 	# The number of space
-	
 	# Loop 2 marks the end of the string by getting rid of all the tabs and the spaces at the end of the string
 	loop3: 	lb  $t5, ($a0)		# Storing the byte a0 is pointing to in $t5
 		beq $t5, 0, exitLoop3	# If the pointer reaches the end of the string 
@@ -94,8 +91,6 @@ trimSpace:
 	li  $t7, 0			# $t7 stores end of the line character
 	sb  $t7, ($a0)			# End of the character is inserted at the end of the valid character
 	jr  $ra				# Returning control to the main program
-
-
 subprogram_1:
 # Function to convert single hexadecimal character to decimal integer
 # Arguments:    $a0
@@ -119,29 +114,22 @@ subprogram_1:
 		addi $v1, $a0, -87	# subtract 87 from the small letters to get the decimal value
 	exitCharToInteger:
 	jr $ra
-
 subprogram_2:
 # Function to convert a hexadecimal string into hexadecimal integer using subprogram_1
 # Arguments:	$a0 (The string), $a1(The length of the string)	
 # Return Value: $sp (Returns the final result)
-# This function first trims the space and then loops through the string to see if all the chars are valid.
-# If the chars are valid then the conversion is made.
 	add $s7, $ra, $zero	# Saving the memory address of the ra register
 	jal trimSpace		# Calling the function to trim the space
 	add $s6, $v0, $zero	# Sacing the address
 	li $s5, 0		# Length of the new String
-	
 	loop5:	lb  $t8, ($s6)			#loading the character at $s6 into $t8
 		beq $t8,  0, exitLoop5		# If the character is a end-line character then we exit the loop
 		beq $t8, 10, exitLoop5		# If the character is a new-line character then we exit the loop
-		
 		# Calling the function to check if the character is valid
 		la $a0, ($t8)	# Preparing the arguments		
 		jal checkChar	# Calling the function
 		la $t7, ($v1)	# Storing the return value
-		
 		beq $t7, 1, continue5		# If the character is valid then we continue normal loop operations
-		
 		# If the character is not a valid character
 		li $v0, 0		# $v0 refers whether the conversion was successful
 		la $v1, naN		# $v1 contains the startting address of the given error
@@ -158,7 +146,6 @@ subprogram_2:
 	skip:
 	bgt $s5, 8, tooLarge1		# Checking if the length is greater than 8
 	j valid				# If the length is 8 or smaller
-	
 	# If the string is larger than 8 characters
 	tooLarge1:
 	li $v0, 0		# v0 contains whether the transformation was successfull or not
@@ -168,16 +155,13 @@ subprogram_2:
 	sub $s6, $s6, $s5	# s6 now points to the start of the string
 	li $v0, 1		# $v0 = 1, means the conversion can be made
 	li $s4, 0		# #s4 stores the converted decimal integer
-	
 	loop6:	lb $t8, ($s6)			# loading the byte pointed by s6
 		beq $t8, 0, exitLoop6		# If the byte is a new-line or a end-line character, we exit the loop
 		beq $t8, 10, exitLoop6
-		
 		# Calling a function to covert a character into its corrosponding number
 		la $a0, ($t8)
 		jal subprogram_1
 		la $t7, ($v1)
-		
 		# Performing the operations required to convert the hexadecimal number to decimal
 		sll $s4, $s4, 4
 		add $s4, $s4, $t7
@@ -186,41 +170,40 @@ subprogram_2:
 		j loop6			# looping
 	exitLoop6:
 	la $v1, ($s4)
-	
 	exitS2:
 	# Loading the stack registers to return the value
 	addi $sp, $sp, -4
 	sw $v1, 0($sp)
-	
 	addi $sp, $sp, -4
 	sw $v0, 0($sp)
-	
+	# Restoring the value of the $ra register
 	add $ra, $s7, $zero
 	jr $ra
-
 subprogram_3:
-	lw $t8, ($sp)			# $t8 now contains the validity
-	addi $sp, $sp, 4
+# Function to print the converted decimal number or the related error message
+# Argument: $sp
+	lw $t8, ($sp)			# $t8 now contains the boolean variable of whether the number is valid or not
+	addi $sp, $sp, 4		# Deleting the retrieved member from the stack
 	lw $t7, ($sp)			# $t7 now contains the value or the error message
-	beq $t8, 0, errorMessage
-	li $v0, 1
+	beq $t8, 0, errorMessage	# If the number is invalid we print the error message
+	# Making the system ready to print integer
 	li $t6, 10
-	divu $t7, $t6
+	divu $t7, $t6			# Unsigend division by 10
 	li $v0, 1
 	mflo $a0
-	syscall
+	beq $a0, 0, skip0		# If the first character is 0, we don't print it
+	syscall				# Printing the value in mflo
+	skip0:
 	mfhi $a0
-	syscall
+	syscall				# Printing the value in mfhi
 	j exitS3
 	errorMessage:
+	# Getting ready to print the error Message
 	li $v0, 4
 	la $a0, ($t7)
 	syscall
 	exitS3:
 	jr $ra
-	
-	
-
 checkChar:
 # Function to check if the character is valid
 # Arguemnt required: $a0
